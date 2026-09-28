@@ -1,0 +1,1798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buck Creek Overlook - 3D Civil Engineering & Regional Master Plan</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #040814;
+      color: #f1f5f9;
+      user-select: none;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    #webgl-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    .glass-panel {
+      background: rgba(10, 18, 36, 0.90);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 20px 45px -15px rgba(0, 0, 0, 0.75);
+    }
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.5);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(94, 114, 148, 0.5);
+      border-radius: 9999px;
+    }
+    .view-btn.active {
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      border-color: #38bdf8;
+      color: #ffffff;
+      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.45);
+    }
+    .elevation-tab.active {
+      background: #0284c7;
+      color: #ffffff;
+      border-color: #38bdf8;
+    }
+  </style>
+</head>
+<body class="w-full h-full relative">
+
+  <canvas id="webgl-canvas"></canvas>
+
+  <!-- Top Navigation Bar & Title Header -->
+  <header class="absolute top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2.5 pointer-events-none">
+    <div class="glass-panel px-4 py-2 rounded-2xl flex items-center space-x-3 pointer-events-auto border border-sky-500/30">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-sky-500 to-emerald-500 flex items-center justify-center text-white shadow-lg shadow-sky-500/25">
+        <i class="fa-solid fa-layer-group text-lg"></i>
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <h1 class="text-sm sm:text-base font-bold tracking-tight text-white flex items-center gap-2">
+            Buck Creek Overlook
+            <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">6.00 AC Master CAD</span>
+          </h1>
+        </div>
+        <p class="text-[11px] text-slate-300 flex items-center gap-1.5">
+          <i class="fa-solid fa-location-dot text-rose-400 text-[10px]"></i>
+          6165 W 200 N, Greenfield, IN &bull; 
+          <span class="text-sky-300 font-medium">East: Buck Creek &amp; Roundabout &bull; North: Hancock Health</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- Quick State Switcher & Environment Toolbar -->
+    <div class="glass-panel p-1.5 rounded-2xl flex items-center space-x-1.5 pointer-events-auto">
+      <button id="btn-mode-proposed" onclick="switchState('proposed')" class="view-btn active px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-2 transition-all">
+        <i class="fa-solid fa-hotel text-emerald-400"></i>
+        <span>Proposed: Dual Hotels (193 Keys)</span>
+      </button>
+      <button id="btn-mode-existing" onclick="switchState('existing')" class="view-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/60 transition-all flex items-center space-x-2">
+        <i class="fa-solid fa-triangle-exclamation text-amber-400"></i>
+        <span>Existing: Trees, House &amp; Blight</span>
+      </button>
+
+      <button onclick="toggleElevationModal(true)" class="px-3 py-1.5 rounded-xl text-xs font-semibold text-sky-300 bg-sky-950/60 hover:bg-sky-900/60 border border-sky-500/40 transition flex items-center gap-1.5">
+        <i class="fa-solid fa-ruler-combined"></i>
+        <span>Elevations</span>
+      </button>
+
+      <div class="w-px h-5 bg-slate-700/60 mx-1"></div>
+      <button id="btn-time-day" onclick="setTimeOfDay('day')" title="Daylight View" class="p-1.5 w-8 h-8 rounded-xl text-amber-300 bg-slate-800/80 hover:bg-slate-700 transition flex items-center justify-center">
+        <i class="fa-solid fa-sun text-xs"></i>
+      </button>
+      <button id="btn-time-sunset" onclick="setTimeOfDay('sunset')" title="Golden Hour" class="p-1.5 w-8 h-8 rounded-xl text-orange-400 bg-slate-800/80 hover:bg-slate-700 transition flex items-center justify-center">
+        <i class="fa-solid fa-cloud-sun text-xs"></i>
+      </button>
+      <button id="btn-time-night" onclick="setTimeOfDay('night')" title="Night Lighting" class="p-1.5 w-8 h-8 rounded-xl text-indigo-400 bg-slate-800/80 hover:bg-slate-700 transition flex items-center justify-center">
+        <i class="fa-solid fa-moon text-xs"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Bottom Camera Flyover Presets (Includes Super Zoom Out) -->
+  <div class="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 pointer-events-auto">
+    <div class="glass-panel px-3 py-2 rounded-2xl flex items-center gap-1.5 shadow-2xl border border-slate-700/70 overflow-x-auto max-w-[95vw]">
+      <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 hidden md:inline-block">Zoom/View:</span>
+      <button onclick="animateCameraTo('regional')" class="cam-btn px-2.5 py-1 rounded-xl bg-slate-800/80 hover:bg-sky-600/30 hover:text-sky-300 text-xs text-slate-200 transition flex items-center gap-1 border border-slate-700/50">
+        <i class="fa-solid fa-globe text-[10px] text-sky-400"></i> Regional Overview (Full Zoom-Out)
+      </button>
+      <button onclick="animateCameraTo('northStreet')" class="cam-btn px-2.5 py-1 rounded-xl bg-slate-800/80 hover:bg-amber-600/30 hover:text-amber-300 text-xs text-slate-200 transition flex items-center gap-1 border border-slate-700/50">
+        <i class="fa-solid fa-square-parking text-[10px] text-amber-400"></i> North Street-Side Parking
+      </button>
+      <button onclick="animateCameraTo('southBasins')" class="cam-btn px-2.5 py-1 rounded-xl bg-slate-800/80 hover:bg-cyan-600/30 hover:text-cyan-300 text-xs text-slate-200 transition flex items-center gap-1 border border-slate-700/50">
+        <i class="fa-solid fa-water text-[10px] text-cyan-400"></i> South Storm Basins &amp; Wall
+      </button>
+      <button onclick="animateCameraTo('roundabout')" class="cam-btn px-2.5 py-1 rounded-xl bg-slate-800/80 hover:bg-emerald-600/30 hover:text-emerald-300 text-xs text-slate-200 transition flex items-center gap-1 border border-slate-700/50">
+        <i class="fa-solid fa-circle-notch text-[10px] text-emerald-400"></i> East Roundabout
+      </button>
+      <button onclick="animateCameraTo('northHealth')" class="cam-btn px-2.5 py-1 rounded-xl bg-slate-800/80 hover:bg-rose-600/30 hover:text-rose-300 text-xs text-slate-200 transition flex items-center gap-1 border border-slate-700/50">
+        <i class="fa-solid fa-hospital text-[10px] text-rose-400"></i> North: Hancock Health
+      </button>
+      <button onclick="animateCameraTo('siteMaster')" class="cam-btn px-2.5 py-1 rounded-xl bg-slate-800/80 hover:bg-sky-600/30 hover:text-sky-300 text-xs text-slate-200 transition flex items-center gap-1 border border-slate-700/50">
+        <i class="fa-solid fa-maximize text-[10px] text-sky-400"></i> 6-Acre CAD Site
+      </button>
+      <button id="toggle-orbit-tour" onclick="toggleTourMode()" class="px-2.5 py-1 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 text-xs font-semibold transition flex items-center gap-1 border border-indigo-500/40">
+        <i class="fa-solid fa-play text-[9px]"></i> <span id="tour-text">Auto Orbit</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Left Side Control Panel: Civil Layers & Color Legend -->
+  <aside class="absolute top-20 left-3 z-20 w-72 max-h-[calc(100vh-120px)] flex flex-col gap-2.5 pointer-events-auto overflow-y-auto pr-1">
+    
+    <!-- Civil CAD Layer Toggles -->
+    <div class="glass-panel p-3.5 rounded-2xl border border-slate-700/60 text-xs">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5 text-[11px]">
+          <i class="fa-solid fa-layer-group"></i> CAD Layout Layers
+        </h3>
+        <span class="text-[9px] text-slate-400 font-mono">SITE PLAN</span>
+      </div>
+      
+      <div class="space-y-1.5">
+        <label class="flex items-center justify-between p-1.5 rounded-xl bg-slate-800/50 hover:bg-slate-800/80 cursor-pointer transition">
+          <span class="flex items-center gap-1.5 text-slate-200">
+            <span class="w-2.5 h-2.5 rounded bg-sky-500 inline-block"></span> Fairfield Inn (West 97 Rms)
+          </span>
+          <input type="checkbox" id="layer-fairfield" checked onchange="toggleLayer('fairfield')" class="rounded border-slate-600 text-sky-500">
+        </label>
+
+        <label class="flex items-center justify-between p-1.5 rounded-xl bg-slate-800/50 hover:bg-slate-800/80 cursor-pointer transition">
+          <span class="flex items-center gap-1.5 text-slate-200">
+            <span class="w-2.5 h-2.5 rounded bg-blue-700 inline-block"></span> Holiday Inn (East 96 Rms)
+          </span>
+          <input type="checkbox" id="layer-holiday" checked onchange="toggleLayer('holiday')" class="rounded border-slate-600 text-sky-500">
+        </label>
+
+        <label class="flex items-center justify-between p-1.5 rounded-xl bg-slate-800/50 hover:bg-slate-800/80 cursor-pointer transition">
+          <span class="flex items-center gap-1.5 text-slate-200">
+            <span class="w-2.5 h-2.5 rounded bg-amber-400 inline-block"></span> North Street-Side Angled Parking
+          </span>
+          <input type="checkbox" id="layer-north-parking" checked onchange="toggleLayer('northParking')" class="rounded border-slate-600 text-sky-500">
+        </label>
+        
+        <label class="flex items-center justify-between p-1.5 rounded-xl bg-slate-800/50 hover:bg-slate-800/80 cursor-pointer transition">
+          <span class="flex items-center gap-1.5 text-slate-200">
+            <span class="w-2.5 h-2.5 rounded bg-amber-600 inline-block"></span> Structural Retaining Walls
+          </span>
+          <input type="checkbox" id="layer-retaining" checked onchange="toggleLayer('retaining')" class="rounded border-slate-600 text-sky-500">
+        </label>
+
+        <label class="flex items-center justify-between p-1.5 rounded-xl bg-slate-800/50 hover:bg-slate-800/80 cursor-pointer transition">
+          <span class="flex items-center gap-1.5 text-slate-200">
+            <span class="w-2.5 h-2.5 rounded bg-cyan-500 inline-block"></span> Dual South Detention Basins
+          </span>
+          <input type="checkbox" id="layer-basins" checked onchange="toggleLayer('basins')" class="rounded border-slate-600 text-sky-500">
+        </label>
+
+        <label class="flex items-center justify-between p-1.5 rounded-xl bg-slate-800/50 hover:bg-slate-800/80 cursor-pointer transition">
+          <span class="flex items-center gap-1.5 text-slate-200">
+            <span class="w-2.5 h-2.5 rounded bg-blue-400 inline-block"></span> Buck Creek &amp; Riparian Border
+          </span>
+          <input type="checkbox" id="layer-creek" checked onchange="toggleLayer('creek')" class="rounded border-slate-600 text-sky-500">
+        </label>
+
+        <label class="flex items-center justify-between p-1.5 rounded-xl bg-slate-800/50 hover:bg-slate-800/80 cursor-pointer transition">
+          <span class="flex items-center gap-1.5 text-slate-200">
+            <span class="w-2.5 h-2.5 rounded bg-emerald-500 inline-block"></span> W 200 N, Bridge &amp; Roundabout
+          </span>
+          <input type="checkbox" id="layer-road" checked onchange="toggleLayer('road')" class="rounded border-slate-600 text-sky-500">
+        </label>
+
+        <label class="flex items-center justify-between p-1.5 rounded-xl bg-slate-800/50 hover:bg-slate-800/80 cursor-pointer transition">
+          <span class="flex items-center gap-1.5 text-slate-200">
+            <span class="w-2.5 h-2.5 rounded bg-rose-500 inline-block"></span> North Area: Hancock Health
+          </span>
+          <input type="checkbox" id="layer-north" checked onchange="toggleLayer('north')" class="rounded border-slate-600 text-sky-500">
+        </label>
+      </div>
+    </div>
+
+    <!-- Site Color Legend Matching CAD & Engineering Plan -->
+    <div class="glass-panel p-3.5 rounded-2xl border border-slate-700/60 text-xs">
+      <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Master Color Reference</div>
+      <div class="space-y-1.5 text-[11px] text-slate-300">
+        <div class="flex items-center justify-between">
+          <span class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-sky-500 border border-sky-300"></span> Fairfield Inn (West)</span>
+          <span class="mono text-slate-400 text-[10px]">97 Keys</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-blue-700 border border-blue-400"></span> Holiday Inn Express (East)</span>
+          <span class="mono text-slate-400 text-[10px]">96 Keys</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-amber-400 border border-amber-300"></span> North Angled Bays</span>
+          <span class="mono text-slate-400 text-[10px]">Street-Side</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-cyan-600 border border-cyan-400"></span> Dual Storm Basins</span>
+          <span class="mono text-slate-400 text-[10px]">South Retention</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-amber-700 border border-amber-500"></span> Retaining Wall</span>
+          <span class="mono text-slate-400 text-[10px]">Wall &amp; Jog</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-emerald-600 border border-emerald-400"></span> Buck Creek Edge</span>
+          <span class="mono text-slate-400 text-[10px]">Tree Line</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-amber-500 border border-amber-300"></span> East Roundabout</span>
+          <span class="mono text-slate-400 text-[10px]">W 200 N</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-rose-700 border border-rose-400"></span> Hancock Health</span>
+          <span class="mono text-slate-400 text-[10px]">North</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Object Tooltip / Inspector Box -->
+    <div id="inspector-card" class="glass-panel p-3.5 rounded-2xl border border-sky-500/40 transition-all duration-300 hidden">
+      <div class="flex items-center justify-between text-xs mb-1">
+        <span class="font-bold text-sky-300 flex items-center gap-1.5">
+          <i class="fa-solid fa-magnifying-glass-location text-sky-400"></i> Object Inspector
+        </span>
+        <button onclick="closeInspector()" class="text-slate-400 hover:text-white text-xs">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <h4 id="inspector-title" class="text-sm font-bold text-white mb-0.5">Fairfield Inn</h4>
+      <p id="inspector-desc" class="text-xs text-slate-300 leading-normal"></p>
+      <div id="inspector-specs" class="mt-2 pt-2 border-t border-slate-700/60 text-[11px] mono text-slate-300 flex flex-col gap-0.5"></div>
+    </div>
+  </aside>
+
+  <!-- Top Right Orientation Compass & Context -->
+  <div class="absolute top-20 right-3 z-20 pointer-events-auto flex flex-col items-end gap-2">
+    <div class="glass-panel p-2.5 rounded-2xl border border-slate-700/60 flex flex-col items-center">
+      <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Orientation</div>
+      <div id="compass-rose" class="relative w-12 h-12 rounded-full bg-slate-900/90 border border-slate-700 flex items-center justify-center transition-transform">
+        <span class="absolute top-1 text-[8px] font-bold text-rose-500">N</span>
+        <span class="absolute bottom-1 text-[8px] font-bold text-slate-400">S</span>
+        <span class="absolute left-1 text-[8px] font-bold text-slate-400">W</span>
+        <span class="absolute right-1 text-[8px] font-bold text-cyan-400">E</span>
+        <div class="w-1 h-6 bg-gradient-to-t from-transparent via-rose-500 to-rose-400 rounded-full"></div>
+      </div>
+    </div>
+
+    <!-- Quick Location Badge -->
+    <div class="glass-panel p-2.5 rounded-2xl border border-slate-700/60 text-[10px] space-y-1 w-48">
+      <div class="font-bold text-slate-300 flex items-center gap-1">
+        <i class="fa-solid fa-compass text-sky-400"></i> Geographic Context
+      </div>
+      <div class="text-slate-400 leading-tight">
+        &bull; <strong>North:</strong> W 200 N &amp; Hancock Health<br>
+        &bull; <strong>North Frontage:</strong> Angled street-side stalls<br>
+        &bull; <strong>East:</strong> Buck Creek, Bridge &amp; Roundabout<br>
+        &bull; <strong>South:</strong> Dual Basins &amp; Retaining Wall<br>
+        &bull; <strong>West:</strong> 12" PVC utility easement
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Hotel Architectural Elevations & Prototype Sheets -->
+  <div id="elevations-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-3 sm:p-6">
+    <div class="glass-panel w-full max-w-4xl max-h-[90vh] rounded-3xl border border-sky-500/40 flex flex-col overflow-hidden shadow-2xl">
+      <!-- Modal Header -->
+      <div class="p-4 px-6 border-b border-slate-700/70 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-8 h-8 rounded-xl bg-sky-600/30 border border-sky-400/40 flex items-center justify-center text-sky-300">
+            <i class="fa-solid fa-ruler-combined"></i>
+          </div>
+          <div>
+            <h2 class="text-sm sm:text-base font-bold text-white">Hotel Architectural Elevations &amp; CAD Layout</h2>
+            <p class="text-[11px] text-slate-400">4-Story Prototype Finishes &bull; Fairfield Inn (West) &amp; Holiday Inn Express (East)</p>
+          </div>
+        </div>
+        <button onclick="toggleElevationModal(false)" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Elevation Tabs -->
+      <div class="flex items-center px-6 pt-2.5 border-b border-slate-800 gap-2 bg-slate-900/50">
+        <button id="tab-fairfield" onclick="switchElevationTab('fairfield')" class="elevation-tab active px-3.5 py-1.5 rounded-t-xl text-xs font-bold border-b-2 border-transparent transition flex items-center gap-1.5">
+          <i class="fa-solid fa-hotel text-sky-400"></i> Fairfield Inn (West: 97 Rms)
+        </button>
+        <button id="tab-holiday" onclick="switchElevationTab('holiday')" class="elevation-tab px-3.5 py-1.5 rounded-t-xl text-xs font-bold text-slate-400 border-b-2 border-transparent transition flex items-center gap-1.5">
+          <i class="fa-solid fa-building text-blue-400"></i> Holiday Inn Express (East: 96 Rms)
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-5 overflow-y-auto flex-1 space-y-4 text-xs">
+        
+        <!-- Fairfield Inn Elevations Content -->
+        <div id="content-fairfield" class="space-y-3">
+          <div class="grid grid-cols-3 gap-2">
+            <div class="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
+              <span class="text-slate-400 text-[10px]">Guest Rooms:</span>
+              <div class="text-sm font-bold text-white mono">97 Keys &bull; 4 Stories</div>
+            </div>
+            <div class="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
+              <span class="text-slate-400 text-[10px]">Parking Stalls:</span>
+              <div class="text-sm font-bold text-sky-300 mono">101 Dedicated Stalls</div>
+            </div>
+            <div class="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
+              <span class="text-slate-400 text-[10px]">Building Height:</span>
+              <div class="text-sm font-bold text-emerald-300 mono">48'-6" To Parapet</div>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col items-center">
+            <div class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 self-start flex items-center gap-2">
+              <i class="fa-solid fa-draw-polygon text-sky-400"></i> North Front Elevation (Marriott Prototype - Facing W 200 N Drive)
+            </div>
+            <svg viewBox="0 0 850 200" class="w-full h-auto max-h-48">
+              <line x1="20" y1="180" x2="830" y2="180" stroke="#475569" stroke-width="2"/>
+              <rect x="70" y="35" width="710" height="145" fill="#cbd5e1" stroke="#334155" stroke-width="2"/>
+              <rect x="65" y="30" width="720" height="8" fill="#1e293b"/>
+              <rect x="90" y="45" width="670" height="14" fill="#854d0e"/>
+              <rect x="90" y="85" width="670" height="12" fill="#64748b"/>
+              <rect x="90" y="125" width="670" height="12" fill="#64748b"/>
+              <rect x="70" y="35" width="45" height="145" fill="#334155"/>
+              <rect x="735" y="35" width="45" height="145" fill="#334155"/>
+              <rect x="375" y="15" width="105" height="165" fill="#0f172a" stroke="#0284c7" stroke-width="2"/>
+              <rect x="385" y="22" width="85" height="16" rx="3" fill="#0284c7"/>
+              <text x="427" y="34" fill="#ffffff" font-size="9" font-weight="bold" text-anchor="middle">FAIRFIELD</text>
+              <rect x="350" y="120" width="155" height="10" fill="#0f172a" stroke="#38bdf8" stroke-width="1.5"/>
+              <rect x="360" y="130" width="8" height="50" fill="#475569"/>
+              <rect x="487" y="130" width="8" height="50" fill="#475569"/>
+              <text x="427" y="128" fill="#38bdf8" font-size="8" text-anchor="middle">PORTE-COCHÈRE (14' CLEARANCE)</text>
+              <rect x="375" y="140" width="105" height="40" fill="#38bdf8" fill-opacity="0.25" stroke="#38bdf8"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Holiday Inn Express Elevations Content -->
+        <div id="content-holiday" class="space-y-3 hidden">
+          <div class="grid grid-cols-3 gap-2">
+            <div class="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
+              <span class="text-slate-400 text-[10px]">Guest Rooms:</span>
+              <div class="text-sm font-bold text-white mono">96 Keys &bull; 4 Stories</div>
+            </div>
+            <div class="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
+              <span class="text-slate-400 text-[10px]">Parking Stalls:</span>
+              <div class="text-sm font-bold text-blue-300 mono">97 Dedicated Stalls</div>
+            </div>
+            <div class="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
+              <span class="text-slate-400 text-[10px]">Zoning &amp; Lot:</span>
+              <div class="text-sm font-bold text-indigo-300 mono">3.87 AC &bull; Zone CC</div>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col items-center">
+            <div class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 self-start flex items-center gap-2">
+              <i class="fa-solid fa-draw-polygon text-blue-400"></i> North Front Elevation (IHG Formula Blue Prototype)
+            </div>
+            <svg viewBox="0 0 850 200" class="w-full h-auto max-h-48">
+              <line x1="20" y1="180" x2="830" y2="180" stroke="#475569" stroke-width="2"/>
+              <rect x="70" y="35" width="710" height="145" fill="#f8fafc" stroke="#334155" stroke-width="2"/>
+              <rect x="65" y="30" width="720" height="7" fill="#0f172a"/>
+              <rect x="360" y="10" width="130" height="170" fill="#1e3a8a" stroke="#3b82f6" stroke-width="2"/>
+              <rect x="375" y="18" width="100" height="18" rx="3" fill="#ffffff"/>
+              <text x="425" y="30" fill="#1e3a8a" font-size="9" font-weight="bold" text-anchor="middle">Holiday Inn Express</text>
+              <rect x="70" y="150" width="710" height="30" fill="#78350f" fill-opacity="0.8"/>
+              <rect x="330" y="120" width="190" height="10" fill="#0f172a" stroke="#60a5fa" stroke-width="1.5"/>
+              <rect x="345" y="130" width="8" height="50" fill="#334155"/>
+              <rect x="495" y="130" width="8" height="50" fill="#334155"/>
+              <rect x="375" y="140" width="100" height="40" fill="#60a5fa" fill-opacity="0.3" stroke="#60a5fa"/>
+            </svg>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* =========================================================================
+       BUCK CREEK OVERLOOK 3D REGIONAL & CIVIL VISUALIZATION ENGINE
+       Matches Google Earth Satellite Imagery & Civil Engineer CAD Layout:
+       - Street-side angled parking bays on North
+       - Dual Future Stormwater Detention Basins on South
+       - Retaining walls with center jog & Tree Preservation Line on Southeast
+       - Fairfield Inn (West 97 Rms) & Holiday Inn Express (East 96 Rms)
+       - East Roundabout, W 200 N Bridge & Hancock Health North Campus
+       ========================================================================= */
+
+    let scene, camera, renderer, controls;
+    let proposedGroup, existingGroup, fairfieldGroup, holidayGroup, retainingGroup, landscapeGroup, waterGroup, parkingGroup, northParkingGroup, roadGroup, northGroup;
+    let directionalLight, ambientLight, hemisphereLight;
+    let raycaster, mouse;
+    let isTourActive = false;
+    let tourAngle = 0;
+    let currentMode = 'proposed';
+    let creekMesh, westBasinMesh, eastBasinMesh, northLakeMesh;
+    let interactiveObjects = [];
+
+    // Distinct Visual Palette Tokens based on CAD and Google Earth
+    const COLORS = {
+      // Terrain & Surfaces
+      grass: 0x2f4b27,
+      grassBlight: 0x544e39,
+      soil: 0x4a3b2b,
+      riparianStone: 0x4b5563,
+
+      // Roadways & Infrastructure
+      asphalt: 0x161a22,
+      concrete: 0x94a3b8,
+      curb: 0xd1d5db,
+      roadMarkingYellow: 0xfacc15,
+      roadMarkingWhite: 0xffffff,
+      roundaboutIsland: 0x1f3b20,
+
+      // Fairfield Inn (West Hotel)
+      fairfieldBody: 0xd1cfcb,
+      fairfieldCharcoal: 0x1e293b,
+      fairfieldCyan: 0x0284c7,
+      fairfieldGlass: 0x38bdf8,
+
+      // Holiday Inn Express (East Hotel)
+      holidayBody: 0xf8fafc,
+      holidayBlue: 0x1e3a8a,
+      holidayStone: 0x78350f,
+      holidayGlass: 0x60a5fa,
+
+      // Water Systems
+      creekWater: 0x135870,
+      cleanBasinWater: 0x187a9e,
+      murkyPondWater: 0x414833,
+      northLakeWater: 0x1b6d8a,
+
+      // Retaining Wall & Structures
+      retainingWall: 0x475569,
+      guardrail: 0x1e293b,
+
+      // North Hancock Health
+      hancockHospital: 0x334155,
+      hancockRoof: 0x1e293b,
+      waterTower: 0xe2e8f0
+    };
+
+    function init() {
+      const canvas = document.getElementById('webgl-canvas');
+
+      // 1. Scene Setup
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x060b17);
+      scene.fog = new THREE.FogExp2(0x060b17, 0.0012);
+
+      // 2. Camera Setup (Generous view to allow extreme zoom-out to regional roundabout and north)
+      camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 1, 3500);
+      camera.position.set(0, 240, 320);
+
+      // 3. WebGL Renderer
+      renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.15;
+
+      // 4. OrbitControls with high maxDistance for deep zoom-out
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.maxPolarAngle = Math.PI / 2.05;
+      controls.minDistance = 20;
+      controls.maxDistance = 1600; // Allows super zoom-out as requested
+      controls.target.set(0, 0, 0);
+
+      // 5. Lighting
+      ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
+      scene.add(ambientLight);
+
+      hemisphereLight = new THREE.HemisphereLight(0xdbeafe, 0x1e293b, 0.45);
+      hemisphereLight.position.set(0, 300, 0);
+      scene.add(hemisphereLight);
+
+      directionalLight = new THREE.DirectionalLight(0xfff7ed, 1.45);
+      directionalLight.position.set(240, 300, 180);
+      directionalLight.castShadow = true;
+      directionalLight.shadow.mapSize.width = 2048;
+      directionalLight.shadow.mapSize.height = 2048;
+      directionalLight.shadow.camera.near = 20;
+      directionalLight.shadow.camera.far = 1000;
+      const d = 380;
+      directionalLight.shadow.camera.left = -d;
+      directionalLight.shadow.camera.right = d;
+      directionalLight.shadow.camera.top = d;
+      directionalLight.shadow.camera.bottom = -d;
+      directionalLight.shadow.bias = -0.0004;
+      scene.add(directionalLight);
+
+      // 6. Raycasting
+      raycaster = new THREE.Raycaster();
+      mouse = new THREE.Vector2();
+      window.addEventListener('click', onDocumentClick, false);
+      window.addEventListener('resize', onWindowResize, false);
+
+      // 7. Component Groups
+      proposedGroup = new THREE.Group();
+      existingGroup = new THREE.Group();
+      fairfieldGroup = new THREE.Group();
+      holidayGroup = new THREE.Group();
+      retainingGroup = new THREE.Group();
+      landscapeGroup = new THREE.Group();
+      waterGroup = new THREE.Group();
+      parkingGroup = new THREE.Group();
+      northParkingGroup = new THREE.Group();
+      roadGroup = new THREE.Group();
+      northGroup = new THREE.Group();
+
+      scene.add(proposedGroup);
+      scene.add(existingGroup);
+      scene.add(roadGroup);
+      scene.add(northGroup);
+
+      proposedGroup.add(fairfieldGroup);
+      proposedGroup.add(holidayGroup);
+      proposedGroup.add(retainingGroup);
+      proposedGroup.add(landscapeGroup);
+      proposedGroup.add(waterGroup);
+      proposedGroup.add(parkingGroup);
+      proposedGroup.add(northParkingGroup);
+
+      // Build Civil Model components
+      buildRegionalTerrainMesh();
+      buildW200NBridgeAndEastRoundabout();
+      buildNorthHancockHealthCampus();
+      buildBuckCreekRiverBed();
+      buildRetainingWallsAndDualBasins();
+      buildFairfieldInnModel();
+      buildHolidayInnExpressModel();
+      buildNorthStreetSideAngledParking();
+      buildCivilParkingStallsAndAccess();
+      buildLandscapingAndTrees();
+      buildExistingBlightSiteModel();
+
+      // Default Proposed
+      existingGroup.visible = false;
+      proposedGroup.visible = true;
+
+      animate();
+    }
+
+    function buildRegionalTerrainMesh() {
+      // Large regional plane to support distant zoom-out (950x750 units)
+      const terrainGeo = new THREE.PlaneGeometry(950, 750, 96, 96);
+      terrainGeo.rotateX(-Math.PI / 2);
+
+      const pos = terrainGeo.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const z = pos.getZ(i);
+
+        let y = 0;
+
+        // Buck Creek depression running North-South around X = 115 to 155
+        if (x > 105 && x < 165) {
+          const creekCenter = 135 + Math.sin(z * 0.02) * 8;
+          const distToCreek = Math.abs(x - creekCenter);
+          if (distToCreek < 18) {
+            y = -7.5 + Math.cos(z * 0.04) * 0.8;
+          } else {
+            y = -((18 - Math.min(distToCreek, 30)) * 0.35);
+          }
+        }
+
+        // East Roundabout Rise
+        if (x > 175 && Math.abs(z - (-38)) < 90) {
+          y = 0.5;
+        }
+
+        // North Hancock Health terrace (Z < -100)
+        if (z < -100) {
+          y = 1.0;
+        }
+
+        // Southern agricultural farmland (Z > 90)
+        if (z > 90) {
+          y = -0.5 + Math.sin(x * 0.08) * 0.25;
+        }
+
+        pos.setY(i, y);
+      }
+      terrainGeo.computeVertexNormals();
+
+      const terrainMat = new THREE.MeshStandardMaterial({
+        color: COLORS.grass,
+        roughness: 0.9,
+        metalness: 0.04,
+        flatShading: true
+      });
+      const terrain = new THREE.Mesh(terrainGeo, terrainMat);
+      terrain.receiveShadow = true;
+      scene.add(terrain);
+
+      // Southern Agricultural Farmland patch
+      const farmGeo = new THREE.PlaneGeometry(620, 220);
+      farmGeo.rotateX(-Math.PI / 2);
+      const farmMat = new THREE.MeshStandardMaterial({
+        color: COLORS.soil,
+        roughness: 0.95
+      });
+      const farmPatch = new THREE.Mesh(farmGeo, farmMat);
+      farmPatch.position.set(-20, -0.4, 210);
+      farmPatch.receiveShadow = true;
+      scene.add(farmPatch);
+    }
+
+    function buildW200NBridgeAndEastRoundabout() {
+      // 1. W CR 200 N Road Surface running West to East (Z = -38)
+      const roadGeo = new THREE.PlaneGeometry(660, 24);
+      roadGeo.rotateX(-Math.PI / 2);
+      const roadMat = new THREE.MeshStandardMaterial({
+        color: COLORS.asphalt,
+        roughness: 0.65,
+        metalness: 0.1
+      });
+      const mainRoad = new THREE.Mesh(roadGeo, roadMat);
+      mainRoad.position.set(-10, 0.45, -38);
+      mainRoad.receiveShadow = true;
+      roadGroup.add(mainRoad);
+
+      // Center Raised Grass/Concrete Median on W 200 N (as shown on Google Earth)
+      const medianGeo = new THREE.BoxGeometry(260, 0.4, 3.2);
+      const medianMat = new THREE.MeshStandardMaterial({ color: 0x1f3b20, roughness: 0.7 });
+      const median = new THREE.Mesh(medianGeo, medianMat);
+      median.position.set(-30, 0.65, -38);
+      roadGroup.add(median);
+
+      // Yellow Median Curbs
+      const curbGeo = new THREE.BoxGeometry(262, 0.45, 0.5);
+      const curbMat = new THREE.MeshStandardMaterial({ color: COLORS.curb });
+      const curbN = new THREE.Mesh(curbGeo, curbMat);
+      curbN.position.set(-30, 0.65, -39.7);
+      const curbS = curbN.clone();
+      curbS.position.set(-30, 0.65, -36.3);
+      roadGroup.add(curbN);
+      roadGroup.add(curbS);
+
+      // 2. Concrete Bridge Deck over Buck Creek (X = 115 to 155)
+      const bridgeDeckGeo = new THREE.BoxGeometry(40, 1.2, 26);
+      const bridgeMat = new THREE.MeshStandardMaterial({ color: 0xa1a1aa, roughness: 0.5 });
+      const bridgeDeck = new THREE.Mesh(bridgeDeckGeo, bridgeMat);
+      bridgeDeck.position.set(135, 0.5, -38);
+      bridgeDeck.castShadow = true;
+      bridgeDeck.receiveShadow = true;
+      bridgeDeck.userData = {
+        name: "W 200 N Bridge over Buck Creek",
+        desc: "Highway bridge carrying W 200 N traffic across the Buck Creek stream corridor toward the East Roundabout.",
+        specs: "Span: 120 LF | Concrete Girders | Eastern Property Gateway"
+      };
+      interactiveObjects.push(bridgeDeck);
+      roadGroup.add(bridgeDeck);
+
+      // Bridge Barriers / Parapets
+      const barrierGeo = new THREE.BoxGeometry(40, 2.2, 1.2);
+      const barrierMat = new THREE.MeshStandardMaterial({ color: 0xd4d4d8, roughness: 0.4 });
+      const barN = new THREE.Mesh(barrierGeo, barrierMat);
+      barN.position.set(135, 1.6, -50.4);
+      const barS = new THREE.Mesh(barrierGeo, barrierMat);
+      barS.position.set(135, 1.6, -25.6);
+      roadGroup.add(barN);
+      roadGroup.add(barS);
+
+      // 3. EAST ROUNDABOUT (X = 220, Z = -38)
+      const roundaboutGroup = new THREE.Group();
+      roundaboutGroup.position.set(220, 0.5, -38);
+
+      // Outer Asphalt Ring
+      const ringGeo = new THREE.RingGeometry(18, 38, 48);
+      ringGeo.rotateX(-Math.PI / 2);
+      const ring = new THREE.Mesh(ringGeo, roadMat);
+      ring.receiveShadow = true;
+      roundaboutGroup.add(ring);
+
+      // Concrete Truck Apron Ring
+      const apronGeo = new THREE.RingGeometry(13, 18, 48);
+      apronGeo.rotateX(-Math.PI / 2);
+      const apronMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.6 });
+      const apron = new THREE.Mesh(apronGeo, apronMat);
+      apron.position.y = 0.06;
+      roundaboutGroup.add(apron);
+
+      // Center Landscaped Island Mound
+      const moundGeo = new THREE.CylinderGeometry(12.6, 12.8, 1.8, 36);
+      const moundMat = new THREE.MeshStandardMaterial({ color: COLORS.roundaboutIsland, roughness: 0.7 });
+      const mound = new THREE.Mesh(moundGeo, moundMat);
+      mound.position.y = 0.9;
+      roundaboutGroup.add(mound);
+
+      // Roundabout Center Art / Gateway Marker
+      const monumentGeo = new THREE.CylinderGeometry(1.4, 2.2, 8, 8);
+      const monumentMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.8, roughness: 0.2 });
+      const monument = new THREE.Mesh(monumentGeo, monumentMat);
+      monument.position.y = 5.0;
+      monument.userData = {
+        name: "W 200 N & Mt. Comfort Gateway Roundabout",
+        desc: "Modern multi-lane roundabout directly east of Buck Creek. Connects traffic to I-70, Greenfield Corporate Park, and Hancock Gateway.",
+        specs: "Status: Constructed & Signalized | Location: East Gateway"
+      };
+      interactiveObjects.push(monument);
+      roundaboutGroup.add(monument);
+
+      // Roundabout legs
+      const legEastGeo = new THREE.PlaneGeometry(80, 24);
+      legEastGeo.rotateX(-Math.PI / 2);
+      const legEast = new THREE.Mesh(legEastGeo, roadMat);
+      legEast.position.set(70, 0, 0);
+      roundaboutGroup.add(legEast);
+
+      const legNorthGeo = new THREE.PlaneGeometry(24, 80);
+      legNorthGeo.rotateX(-Math.PI / 2);
+      const legNorth = new THREE.Mesh(legNorthGeo, roadMat);
+      legNorth.position.set(0, 0, -70);
+      roundaboutGroup.add(legNorth);
+
+      const legSouth = legNorth.clone();
+      legSouth.position.set(0, 0, 70);
+      roundaboutGroup.add(legSouth);
+
+      roadGroup.add(roundaboutGroup);
+
+      // 4. Commercial Entrance off W 200 N into 6-Acre Hotel Site (X = -2)
+      const entranceGeo = new THREE.PlaneGeometry(42, 22);
+      entranceGeo.rotateX(-Math.PI / 2);
+      const entrance = new THREE.Mesh(entranceGeo, roadMat);
+      entrance.position.set(-2, 0.47, -20);
+      roadGroup.add(entrance);
+
+      // Entrance Splitter Island with directional markings
+      const splitGeo = new THREE.BoxGeometry(3.5, 0.45, 16);
+      const splitMat = new THREE.MeshStandardMaterial({ color: COLORS.curb, roughness: 0.4 });
+      const split = new THREE.Mesh(splitGeo, splitMat);
+      split.position.set(-2, 0.65, -18);
+      roadGroup.add(split);
+    }
+
+    function buildNorthHancockHealthCampus() {
+      const hospitalGroup = new THREE.Group();
+      hospitalGroup.position.set(-130, 0, -180);
+
+      // Main Multi-Wing Medical Building
+      const bldg1Geo = new THREE.BoxGeometry(90, 26, 60);
+      const bldg1Mat = new THREE.MeshStandardMaterial({
+        color: COLORS.hancockHospital,
+        roughness: 0.35,
+        metalness: 0.2
+      });
+      const bldg1 = new THREE.Mesh(bldg1Geo, bldg1Mat);
+      bldg1.position.set(0, 13, 0);
+      bldg1.castShadow = true;
+      bldg1.userData = {
+        name: "Hancock Health Gateway Campus (North)",
+        desc: "Regional healthcare facility including medical wellness center, outpatient services, and healthcare offices directly north of W 200 N.",
+        specs: "Gross Area: 100,000+ SF | Campus: Hancock Health"
+      };
+      interactiveObjects.push(bldg1);
+      hospitalGroup.add(bldg1);
+
+      // Distinctive Gabled / Angled Roof
+      const roofGeo = new THREE.ConeGeometry(38, 12, 4);
+      roofGeo.rotateY(Math.PI / 4);
+      const roofMat = new THREE.MeshStandardMaterial({ color: COLORS.hancockRoof, roughness: 0.6 });
+      const roof = new THREE.Mesh(roofGeo, roofMat);
+      roof.position.set(0, 32, 0);
+      hospitalGroup.add(roof);
+
+      // Medical Center Parking Lot
+      const hospPkgGeo = new THREE.PlaneGeometry(160, 90);
+      hospPkgGeo.rotateX(-Math.PI / 2);
+      const hospPkg = new THREE.Mesh(hospPkgGeo, new THREE.MeshStandardMaterial({ color: 0x242a36, roughness: 0.8 }));
+      hospPkg.position.set(0, 0.5, 60);
+      hospitalGroup.add(hospPkg);
+
+      northGroup.add(hospitalGroup);
+
+      // Residential / Villa Rows (West of Hospital)
+      for (let r = 0; r < 2; r++) {
+        for (let c = 0; c < 8; c++) {
+          const villaGeo = new THREE.BoxGeometry(10, 6, 12);
+          const villaMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.5 });
+          const villa = new THREE.Mesh(villaGeo, villaMat);
+          villa.position.set(-180 + c * 14, 3, -135 - r * 18);
+          villa.castShadow = true;
+          northGroup.add(villa);
+        }
+      }
+
+      // Decorative Retention Lake with Aeration Fountain
+      const lakeGeo = new THREE.PlaneGeometry(70, 110, 16, 16);
+      lakeGeo.rotateX(-Math.PI / 2);
+      const lakeMat = new THREE.MeshStandardMaterial({
+        color: COLORS.northLakeWater,
+        roughness: 0.1,
+        metalness: 0.85,
+        transparent: true,
+        opacity: 0.88
+      });
+      northLakeMesh = new THREE.Mesh(lakeGeo, lakeMat);
+      northLakeMesh.position.set(-30, -0.6, -170);
+      northLakeMesh.userData = {
+        name: "North Gateway Retention Lake",
+        desc: "Stormwater lake serving Hancock Health Gateway with lighted aeration fountain.",
+        specs: "Surface Area: 1.8 Acres"
+      };
+      interactiveObjects.push(northLakeMesh);
+      northGroup.add(northLakeMesh);
+
+      // Aeration Fountain
+      const fountainGeo = new THREE.ConeGeometry(2.5, 8, 8);
+      const fountainMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe, wireframe: true, transparent: true, opacity: 0.7 });
+      const fNorth = new THREE.Mesh(fountainGeo, fountainMat);
+      fNorth.position.set(-30, 2.5, -170);
+      northGroup.add(fNorth);
+
+      // Municipal Water Tower (East of Lake)
+      const towerGroup = new THREE.Group();
+      towerGroup.position.set(55, 0, -170);
+
+      const standGeo = new THREE.CylinderGeometry(2.2, 3.5, 36, 16);
+      const towerMat = new THREE.MeshStandardMaterial({ color: COLORS.waterTower, metalness: 0.5, roughness: 0.3 });
+      const stand = new THREE.Mesh(standGeo, towerMat);
+      stand.position.y = 18;
+      stand.castShadow = true;
+      towerGroup.add(stand);
+
+      const tankGeo = new THREE.SphereGeometry(9, 24, 16);
+      const tank = new THREE.Mesh(tankGeo, towerMat);
+      tank.position.y = 36;
+      tank.castShadow = true;
+      tank.userData = {
+        name: "Municipal Water Tower (North Corridor)",
+        desc: "High-capacity municipal water storage providing required pressure for commercial fire suppression and hotel operations.",
+        specs: "Capacity: 1.0M Gallons"
+      };
+      interactiveObjects.push(tank);
+      towerGroup.add(tank);
+
+      northGroup.add(towerGroup);
+    }
+
+    function buildBuckCreekRiverBed() {
+      // Natural Buck Creek running North-South along EAST border (X = 135)
+      const creekGeo = new THREE.PlaneGeometry(28, 520, 24, 64);
+      creekGeo.rotateX(-Math.PI / 2);
+
+      const pos = creekGeo.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        const z = pos.getZ(i);
+        const curveOffset = Math.sin(z * 0.015) * 14;
+        pos.setX(i, pos.getX(i) + curveOffset);
+      }
+      creekGeo.computeVertexNormals();
+
+      const creekMat = new THREE.MeshStandardMaterial({
+        color: COLORS.creekWater,
+        roughness: 0.12,
+        metalness: 0.88,
+        transparent: true,
+        opacity: 0.92
+      });
+      creekMesh = new THREE.Mesh(creekGeo, creekMat);
+      creekMesh.position.set(135, -6.8, -10);
+      creekMesh.userData = {
+        name: "Buck Creek Watershed (Eastern Property Boundary)",
+        desc: "Natural stream corridor bordering the east of the 6-acre site. Protected by dedicated 50-ft riparian buffer, tree preservation line, and structural retaining wall.",
+        specs: "Drainage: Buck Creek to Big Blue River | Eastern Boundary"
+      };
+      interactiveObjects.push(creekMesh);
+      waterGroup.add(creekMesh);
+
+      // Riparian stone boulders along creek banks
+      for (let z = -180; z < 180; z += 14) {
+        const rockGeo = new THREE.DodecahedronGeometry(1.6 + Math.random() * 1.2, 1);
+        const rockMat = new THREE.MeshStandardMaterial({ color: COLORS.riparianStone, roughness: 0.9 });
+        const rock1 = new THREE.Mesh(rockGeo, rockMat);
+        rock1.position.set(122 + Math.sin(z * 0.015) * 14 + (Math.random() - 0.5) * 4, -5.2, z);
+        const rock2 = new THREE.Mesh(rockGeo, rockMat);
+        rock2.position.set(148 + Math.sin(z * 0.015) * 14 + (Math.random() - 0.5) * 4, -5.2, z);
+        landscapeGroup.add(rock1);
+        landscapeGroup.add(rock2);
+      }
+    }
+
+    function buildRetainingWallsAndDualBasins() {
+      const wallMat = new THREE.MeshStandardMaterial({
+        color: COLORS.retainingWall,
+        roughness: 0.65,
+        metalness: 0.2
+      });
+
+      // 1. SOUTH RETAINING WALL (With the distinct center jog from the CAD plan!)
+      // Left segment (West of center drive: X = -90 to -12, Z = 68)
+      const southLeftGeo = new THREE.BoxGeometry(82, 6.5, 3.2);
+      const southLeft = new THREE.Mesh(southLeftGeo, wallMat);
+      southLeft.position.set(-51, 0.2, 68);
+      southLeft.castShadow = true;
+      southLeft.receiveShadow = true;
+      retainingGroup.add(southLeft);
+
+      // Center Jog (Turns south from Z=68 to Z=72 at X = -10 to +8)
+      const jogGeo = new THREE.BoxGeometry(22, 6.5, 3.2);
+      const jog = new THREE.Mesh(jogGeo, wallMat);
+      jog.position.set(-1, 0.2, 70);
+      jog.rotation.y = 0.22; // Angled transition step
+      retainingGroup.add(jog);
+
+      // Right segment (East of center drive: X = 10 to 92, Z = 72)
+      const southRightGeo = new THREE.BoxGeometry(84, 6.5, 3.2);
+      const southRight = new THREE.Mesh(southRightGeo, wallMat);
+      southRight.position.set(52, 0.2, 72);
+      southRight.castShadow = true;
+      southRight.receiveShadow = true;
+      retainingGroup.add(southRight);
+
+      // 2. SOUTHEAST DIAGONAL RETAINING WALL ALONG TREE PRESERVATION LINE
+      // Matches the "RETAINING WALL" & "-- TREE PRESERVATION LINE --" on CAD!
+      const diagWallGeo = new THREE.BoxGeometry(3.5, 7.5, 95);
+      const diagWall = new THREE.Mesh(diagWallGeo, wallMat);
+      diagWall.position.set(94, 0.5, 48);
+      diagWall.rotation.y = -0.58; // Exactly matches CAD angle
+      diagWall.castShadow = true;
+      diagWall.receiveShadow = true;
+      diagWall.userData = {
+        name: "East Riparian Retaining Wall (Buck Creek Barrier)",
+        desc: "Precast segmental concrete retaining wall separating the Holiday Inn parking pad from the Buck Creek valley and Tree Preservation Line.",
+        specs: "Height: 12'-16' | Length: 310 LF | Geogrid Reinforced"
+      };
+      interactiveObjects.push(diagWall);
+      retainingGroup.add(diagWall);
+
+      // Safety Guardrails on Retaining Wall
+      const railGeo = new THREE.BoxGeometry(0.8, 1.2, 95);
+      const railMat = new THREE.MeshStandardMaterial({ color: COLORS.guardrail, metalness: 0.8 });
+      const diagRail = new THREE.Mesh(railGeo, railMat);
+      diagRail.position.set(94, 4.6, 48);
+      diagRail.rotation.y = -0.58;
+      retainingGroup.add(diagRail);
+
+      // 3. DUAL FUTURE STORMWATER DETENTION BASINS (South of Retaining Wall)
+      // Exactly matches the two labeled basins on the CAD layout!
+      const basinMat = new THREE.MeshStandardMaterial({
+        color: COLORS.cleanBasinWater,
+        roughness: 0.15,
+        metalness: 0.75,
+        transparent: true,
+        opacity: 0.88
+      });
+
+      // West Basin (Behind Fairfield Inn: X = -52, Z = 96)
+      const westBasinGeo = new THREE.PlaneGeometry(86, 30);
+      westBasinGeo.rotateX(-Math.PI / 2);
+      westBasinMesh = new THREE.Mesh(westBasinGeo, basinMat);
+      westBasinMesh.position.set(-52, -2.4, 96);
+      westBasinMesh.userData = {
+        name: "Future Stormwater Detention Basin (West)",
+        desc: "Engineered retention basin serving the Fairfield Inn 6-acre western watershed with riprap energy dissipation and controlled weir.",
+        specs: "Storage Volume: 1.8 AC-FT | Wet Retention Design"
+      };
+      interactiveObjects.push(westBasinMesh);
+      waterGroup.add(westBasinMesh);
+
+      // East Basin (Behind Holiday Inn Express: X = 48, Z = 98)
+      const eastBasinGeo = new THREE.PlaneGeometry(86, 30);
+      eastBasinGeo.rotateX(-Math.PI / 2);
+      eastBasinMesh = new THREE.Mesh(eastBasinGeo, basinMat);
+      eastBasinMesh.position.set(48, -2.4, 98);
+      eastBasinMesh.userData = {
+        name: "Future Stormwater Detention Basin (East)",
+        desc: "Engineered detention basin serving the Holiday Inn Express parcel (Zone CC 3.87 AC) with overflow pipe into Buck Creek.",
+        specs: "Storage Volume: 1.7 AC-FT | Environmental Compliance"
+      };
+      interactiveObjects.push(eastBasinMesh);
+      waterGroup.add(eastBasinMesh);
+
+      // Aeration Fountains in both southern basins
+      const fGeo = new THREE.ConeGeometry(2, 5, 8);
+      const fMat = new THREE.MeshBasicMaterial({ color: 0xbae6fd, wireframe: true, transparent: true, opacity: 0.6 });
+      const f1 = new THREE.Mesh(fGeo, fMat);
+      f1.position.set(-52, 0.4, 96);
+      const f2 = new THREE.Mesh(fGeo, fMat);
+      f2.position.set(48, 0.4, 98);
+      waterGroup.add(f1);
+      waterGroup.add(f2);
+    }
+
+    function buildNorthStreetSideAngledParking() {
+      // 1. Street-Side Asphalt Pad (Between W 200 N and Hotel Fronts: Z = -22 to -6)
+      const nPadGeo = new THREE.PlaneGeometry(180, 20);
+      nPadGeo.rotateX(-Math.PI / 2);
+      const nPadMat = new THREE.MeshStandardMaterial({ color: COLORS.asphalt, roughness: 0.7 });
+      const nPad = new THREE.Mesh(nPadGeo, nPadMat);
+      nPad.position.set(-2, 0.48, -14);
+      nPad.receiveShadow = true;
+      northParkingGroup.add(nPad);
+
+      // 2. Street-Side Angled Parking Bays (North of Fairfield & Holiday Inn)
+      // Slanted yellow/white stripes matching CAD drawing
+      const stripeMat = new THREE.MeshBasicMaterial({ color: COLORS.roadMarkingWhite });
+
+      // North Fairfield Angled Stalls (X = -82 to -22)
+      for (let x = -82; x <= -22; x += 4.5) {
+        const sGeo = new THREE.PlaneGeometry(0.3, 6.2);
+        sGeo.rotateX(-Math.PI / 2);
+        sGeo.rotateZ(0.65); // 60-degree angled stall
+        const s = new THREE.Mesh(sGeo, stripeMat);
+        s.position.set(x, 0.51, -16);
+        northParkingGroup.add(s);
+      }
+
+      // North Holiday Inn Angled Stalls (X = 14 to 82)
+      for (let x = 14; x <= 82; x += 4.5) {
+        const sGeo = new THREE.PlaneGeometry(0.3, 6.2);
+        sGeo.rotateX(-Math.PI / 2);
+        sGeo.rotateZ(-0.65); // Angled stall
+        const s = new THREE.Mesh(sGeo, stripeMat);
+        s.position.set(x, 0.51, -16);
+        northParkingGroup.add(s);
+      }
+
+      // 3. Concrete Curb Separator Islands along North Street Frontage
+      buildCurb(-52, -22, 68, 2.5);
+      buildCurb(48, -22, 68, 2.5);
+
+      // 4. Marked Pedestrian Crosswalks connecting North Parking to Porte-Cochère
+      const walkMat = new THREE.MeshBasicMaterial({ color: COLORS.roadMarkingWhite });
+      for (let w = -4; w <= 4; w += 1.2) {
+        const barGeo = new THREE.PlaneGeometry(0.5, 4.0);
+        barGeo.rotateX(-Math.PI / 2);
+        const bFair = new THREE.Mesh(barGeo, walkMat);
+        bFair.position.set(-52 + w, 0.51, -10);
+        const bHol = new THREE.Mesh(barGeo, walkMat);
+        bHol.position.set(48 + w, 0.51, -10);
+        northParkingGroup.add(bFair);
+        northParkingGroup.add(bHol);
+      }
+    }
+
+    function buildFairfieldInnModel() {
+      // Position: Centered around X = -52, Z = 5 (Matching CAD PDF layout)
+      const hotel = new THREE.Group();
+      hotel.position.set(-52, 0, 5);
+
+      // Main 4-story building body
+      const bodyGeo = new THREE.BoxGeometry(70, 22, 28);
+      const bodyMat = new THREE.MeshStandardMaterial({
+        color: COLORS.fairfieldBody,
+        roughness: 0.38,
+        metalness: 0.12
+      });
+      const body = new THREE.Mesh(bodyGeo, bodyMat);
+      body.position.set(0, 11.5, 0);
+      body.castShadow = true;
+      body.receiveShadow = true;
+      body.userData = {
+        name: "Fairfield Inn & Suites by Marriott (West Hotel)",
+        desc: "Four-story contemporary prototype featuring 97 guest rooms, 101 dedicated parking spaces, indoor pool wing, modern fitness center, and meeting suites.",
+        specs: "Keys: 97 Rooms | Stalls: 101 Parking Spaces | Height: 48'-6\" | 4 Stories"
+      };
+      interactiveObjects.push(body);
+      hotel.add(body);
+
+      // Stair Bump-Out Towers on East and West ends (as drawn on CAD)
+      const stairGeo = new THREE.BoxGeometry(6, 23.5, 29);
+      const stairMat = new THREE.MeshStandardMaterial({ color: COLORS.fairfieldCharcoal, metalness: 0.35 });
+      const stairW = new THREE.Mesh(stairGeo, stairMat);
+      stairW.position.set(-35, 12, 0);
+      stairW.castShadow = true;
+      hotel.add(stairW);
+
+      const stairE = stairW.clone();
+      stairE.position.set(35, 12, 0);
+      hotel.add(stairE);
+
+      // Signature Cyan Brand Center Tower Accent
+      const cyanTowerGeo = new THREE.BoxGeometry(16, 25.5, 3.5);
+      const cyanTowerMat = new THREE.MeshStandardMaterial({
+        color: COLORS.fairfieldCyan,
+        metalness: 0.5,
+        roughness: 0.25
+      });
+      const cyanTower = new THREE.Mesh(cyanTowerGeo, cyanTowerMat);
+      cyanTower.position.set(0, 13, -13.5); // Facing North Ingress
+      cyanTower.castShadow = true;
+      hotel.add(cyanTower);
+
+      // Fairfield Brand Sign
+      const signGeo = new THREE.BoxGeometry(12, 2.5, 0.4);
+      const signMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+      const sign = new THREE.Mesh(signGeo, signMat);
+      sign.position.set(0, 23.2, -15.4);
+      hotel.add(sign);
+
+      // Modern Cantilevered Porte-Cochère Canopy (Facing North Road Aisle)
+      const canopyGeo = new THREE.BoxGeometry(24, 1.2, 18);
+      const canopyMat = new THREE.MeshStandardMaterial({ color: COLORS.fairfieldCharcoal, metalness: 0.7 });
+      const canopy = new THREE.Mesh(canopyGeo, canopyMat);
+      canopy.position.set(0, 6.2, -21);
+      canopy.castShadow = true;
+      hotel.add(canopy);
+
+      // Support Columns
+      const pilGeo = new THREE.CylinderGeometry(0.5, 0.5, 6.2, 8);
+      const pilMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.5 });
+      const p1 = new THREE.Mesh(pilGeo, pilMat);
+      p1.position.set(-9.5, 3.1, -28);
+      const p2 = new THREE.Mesh(pilGeo, pilMat);
+      p2.position.set(9.5, 3.1, -28);
+      hotel.add(p1);
+      hotel.add(p2);
+
+      // Ground Floor Glass Lobby
+      const lobbyGeo = new THREE.BoxGeometry(26, 4.8, 1.5);
+      const lobbyMat = new THREE.MeshStandardMaterial({
+        color: COLORS.fairfieldGlass,
+        roughness: 0.1,
+        metalness: 0.9,
+        transparent: true,
+        opacity: 0.82
+      });
+      const lobby = new THREE.Mesh(lobbyGeo, lobbyMat);
+      lobby.position.set(0, 2.6, -14);
+      hotel.add(lobby);
+
+      // Window Rows (Floors 2, 3, 4)
+      for (let fl = 2; fl <= 4; fl++) {
+        const y = 2.5 + fl * 5.2;
+        for (let wx = -28; wx <= 28; wx += 6.5) {
+          if (Math.abs(wx) < 9) continue;
+          const winGeo = new THREE.BoxGeometry(3.6, 2.6, 28.6);
+          const winMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.85, roughness: 0.15 });
+          const win = new THREE.Mesh(winGeo, winMat);
+          win.position.set(wx, y, 0);
+          hotel.add(win);
+        }
+      }
+
+      fairfieldGroup.add(hotel);
+    }
+
+    function buildHolidayInnExpressModel() {
+      // Position: Centered around X = +48, Z = 7 (Matching CAD PDF layout)
+      const hotel = new THREE.Group();
+      hotel.position.set(48, 0, 7);
+
+      // Main 4-story building body
+      const bodyGeo = new THREE.BoxGeometry(72, 22, 28);
+      const bodyMat = new THREE.MeshStandardMaterial({
+        color: COLORS.holidayBody,
+        roughness: 0.35,
+        metalness: 0.08
+      });
+      const body = new THREE.Mesh(bodyGeo, bodyMat);
+      body.position.set(0, 11.5, 0);
+      body.castShadow = true;
+      body.receiveShadow = true;
+      body.userData = {
+        name: "Holiday Inn Express & Suites (East Hotel)",
+        desc: "Four-story modern IHG Formula Blue prototype featuring 96 guest rooms, 97 dedicated parking stalls, boardrooms, and expansive eastern views of Buck Creek.",
+        specs: "Keys: 96 Rooms | Stalls: 97 Parking Spaces | Parcel: 3.87 AC (Zone CC)"
+      };
+      interactiveObjects.push(body);
+      hotel.add(body);
+
+      // Warm Stone Base Wainscot (Ground Floor)
+      const stoneBaseGeo = new THREE.BoxGeometry(72.4, 4.2, 28.4);
+      const stoneBaseMat = new THREE.MeshStandardMaterial({ color: COLORS.holidayStone, roughness: 0.85 });
+      const stoneBase = new THREE.Mesh(stoneBaseGeo, stoneBaseMat);
+      stoneBase.position.set(0, 2.1, 0);
+      hotel.add(stoneBase);
+
+      // Formula Blue Signature Navy Cobalt Tower Blade
+      const navyBladeGeo = new THREE.BoxGeometry(18, 25.8, 3.5);
+      const navyBladeMat = new THREE.MeshStandardMaterial({
+        color: COLORS.holidayBlue,
+        metalness: 0.55,
+        roughness: 0.25
+      });
+      const navyBlade = new THREE.Mesh(navyBladeGeo, navyBladeMat);
+      navyBlade.position.set(-6, 13.5, -13.5); // Offset per CAD entry
+      navyBlade.castShadow = true;
+      hotel.add(navyBlade);
+
+      // Holiday Inn Express Logo Box
+      const logoGeo = new THREE.BoxGeometry(14, 2.8, 0.4);
+      const logoMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+      const logo = new THREE.Mesh(logoGeo, logoMat);
+      logo.position.set(-6, 23.5, -15.4);
+      hotel.add(logo);
+
+      // Formula Blue Porte-Cochère Canopy
+      const canopyGeo = new THREE.BoxGeometry(24, 1.2, 18);
+      const canopyMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.7 });
+      const canopy = new THREE.Mesh(canopyGeo, canopyMat);
+      canopy.position.set(-6, 6.2, -21);
+      canopy.castShadow = true;
+      hotel.add(canopy);
+
+      // Support Columns
+      const colGeo = new THREE.CylinderGeometry(0.5, 0.5, 6.2, 8);
+      const colMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8 });
+      const c1 = new THREE.Mesh(colGeo, colMat);
+      c1.position.set(-15.5, 3.1, -28);
+      const c2 = new THREE.Mesh(colGeo, colMat);
+      c2.position.set(3.5, 3.1, -28);
+      hotel.add(c1);
+      hotel.add(c2);
+
+      // First Floor Great Room / Breakfast Glass Curtain Wall
+      const lobbyGeo = new THREE.BoxGeometry(24, 4.5, 1.5);
+      const lobbyMat = new THREE.MeshStandardMaterial({
+        color: COLORS.holidayGlass,
+        roughness: 0.1,
+        metalness: 0.9,
+        transparent: true,
+        opacity: 0.85
+      });
+      const lobby = new THREE.Mesh(lobbyGeo, lobbyMat);
+      lobby.position.set(-6, 2.5, -14);
+      hotel.add(lobby);
+
+      // Window Rows (Floors 2, 3, 4)
+      for (let fl = 2; fl <= 4; fl++) {
+        const y = 2.5 + fl * 5.2;
+        for (let wx = -30; wx <= 30; wx += 6.5) {
+          if (Math.abs(wx - (-6)) < 10) continue;
+          const winGeo = new THREE.BoxGeometry(3.6, 2.6, 28.6);
+          const winMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.85, roughness: 0.15 });
+          const win = new THREE.Mesh(winGeo, winMat);
+          win.position.set(wx, y, 0);
+          hotel.add(win);
+        }
+      }
+
+      holidayGroup.add(hotel);
+    }
+
+    function buildCivilParkingStallsAndAccess() {
+      // 1. Continuous Asphalt Parking Pad matching Civil Layout
+      const padGeo = new THREE.PlaneGeometry(180, 88);
+      padGeo.rotateX(-Math.PI / 2);
+      const padMat = new THREE.MeshStandardMaterial({
+        color: COLORS.asphalt,
+        roughness: 0.72,
+        metalness: 0.08
+      });
+      const parkingLot = new THREE.Mesh(padGeo, padMat);
+      parkingLot.position.set(-2, 0.48, 24);
+      parkingLot.receiveShadow = true;
+      parkingGroup.add(parkingLot);
+
+      // 2. Concrete Curbs around hotel perimeters
+      buildCurb(-52, 5, 76, 34);
+      buildCurb(48, 7, 78, 34);
+
+      // 3. Central Enclosures (45-degree angled refuse enclosure on CAD!)
+      const refuse1Geo = new THREE.BoxGeometry(6.5, 3.2, 6.5);
+      const refuseMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.7 });
+      const refuse1 = new THREE.Mesh(refuse1Geo, refuseMat);
+      refuse1.position.set(-18, 2, 42); // Angled enclosure on CAD drawing
+      refuse1.rotation.y = 0.65;
+      refuse1.castShadow = true;
+      refuse1.userData = {
+        name: "Masonry Screened Refuse & Recycling Compactor",
+        desc: "Screened masonry enclosure meeting Greenfield municipal standards for solid waste and recycling.",
+        specs: "Architectural block with heavy steel gated doors"
+      };
+      interactiveObjects.push(refuse1);
+      parkingGroup.add(refuse1);
+
+      const pavilion = new THREE.Mesh(refuse1Geo, refuseMat);
+      pavilion.position.set(4, 2, 40); // Central pavilion / island
+      pavilion.userData = {
+        name: "Central Pedestrian Island & Shaded Pergola",
+        desc: "Central gathering node and outdoor seating linking Fairfield Inn and Holiday Inn Express.",
+        specs: "Permeable pavers with seating elements"
+      };
+      interactiveObjects.push(pavilion);
+      parkingGroup.add(pavilion);
+
+      // 4. Striped Parking Stalls (198 Total Spaces: 101 Fairfield + 97 Holiday Inn)
+      const stripeMat = new THREE.MeshBasicMaterial({ color: COLORS.roadMarkingWhite });
+
+      // Fairfield (West 101 stalls):
+      for (let x = -86; x <= -24; x += 3.8) {
+        addStripe(x, 48, 0.25, 5.8, stripeMat); // South lot row
+        addStripe(x, 60, 0.25, 5.8, stripeMat); // Lower south row
+      }
+      for (let z = -8; z <= 34; z += 3.8) {
+        addStripe(-88, z, 5.8, 0.25, stripeMat); // West flank row
+      }
+
+      // Shared Central Spine:
+      for (let z = -8; z <= 38; z += 3.6) {
+        addStripe(-4, z, 5.5, 0.25, stripeMat);
+      }
+
+      // Holiday Inn Express (East 97 stalls):
+      for (let x = 12; x <= 78; x += 3.8) {
+        addStripe(x, 50, 0.25, 5.8, stripeMat); // South lot row
+        addStripe(x, 62, 0.25, 5.8, stripeMat); // Lower south row
+      }
+
+      // EV Fast Charging Pedestals
+      const evMat = new THREE.MeshStandardMaterial({ color: 0x10b981, metalness: 0.6 });
+      for (let i = -10; i <= 6; i += 3.5) {
+        const evGeo = new THREE.BoxGeometry(0.6, 2.2, 0.6);
+        const ev = new THREE.Mesh(evGeo, evMat);
+        ev.position.set(i, 1.6, -6);
+        ev.castShadow = true;
+        parkingGroup.add(ev);
+      }
+
+      // 3D Cars in Parking Stalls
+      const carColors = [0xdbeafe, 0xef4444, 0x1e293b, 0x475569, 0xffffff, 0x0284c7];
+      for (let i = 0; i < 48; i++) {
+        const carGeo = new THREE.BoxGeometry(4.2, 1.5, 2.1);
+        const cColor = carColors[Math.floor(Math.random() * carColors.length)];
+        const carMat = new THREE.MeshStandardMaterial({ color: cColor, metalness: 0.7, roughness: 0.3 });
+        const car = new THREE.Mesh(carGeo, carMat);
+
+        let cx = -80 + Math.random() * 156;
+        let cz = Math.random() > 0.5 ? 48 : -14;
+        if (Math.abs(cx) < 8) cx += 15;
+
+        car.position.set(cx, 1.25, cz);
+        car.castShadow = true;
+        parkingGroup.add(car);
+      }
+    }
+
+    function addStripe(x, z, w, d, mat) {
+      const sGeo = new THREE.PlaneGeometry(w, d);
+      sGeo.rotateX(-Math.PI / 2);
+      const stripe = new THREE.Mesh(sGeo, mat);
+      stripe.position.set(x, 0.51, z);
+      parkingGroup.add(stripe);
+    }
+
+    function buildCurb(x, z, w, d) {
+      const curbGeo = new THREE.BoxGeometry(w, 0.35, d);
+      const curbMat = new THREE.MeshStandardMaterial({ color: COLORS.curb, roughness: 0.6 });
+      const curb = new THREE.Mesh(curbGeo, curbMat);
+      curb.position.set(x, 0.65, z);
+      curb.receiveShadow = true;
+      parkingGroup.add(curb);
+    }
+
+    function buildLandscapingAndTrees() {
+      // 1. Protected Tree Preservation Line along BUCK CREEK (East Border)
+      // Directly matches the dashed line on the CAD drawing
+      for (let z = -70; z <= 120; z += 6) {
+        const bx = 110 + z * 0.18 + (Math.random() - 0.5) * 8;
+        addTree(bx, z, landscapeGroup, false, 1.2 + Math.random() * 0.5);
+      }
+
+      // 2. Parking Lot Island Trees & Perimeter Landscaping
+      const islandPts = [
+        [-75, -22], [-45, -22], [-15, -22], [25, -20], [65, -20],
+        [-75, 58], [-45, 58], [15, 60], [65, 60],
+        [-92, 5], [-92, 25]
+      ];
+      islandPts.forEach(pt => {
+        addTree(pt[0], pt[1], landscapeGroup, false, 0.85);
+      });
+
+      // 3. Commercial LED Site Lighting Poles
+      const poleGeo = new THREE.CylinderGeometry(0.2, 0.25, 9, 8);
+      const poleMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8 });
+      const lightPts = [
+        [-65, -14], [-25, -14], [25, -12], [65, -12],
+        [-65, 48], [-25, 48], [25, 50], [65, 50],
+        [-4, 8], [-4, 28]
+      ];
+      lightPts.forEach(pt => {
+        const pole = new THREE.Mesh(poleGeo, poleMat);
+        pole.position.set(pt[0], 4.5, pt[1]);
+        pole.castShadow = true;
+
+        const headGeo = new THREE.BoxGeometry(1.6, 0.4, 0.8);
+        const headMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x38bdf8, emissiveIntensity: 0.4 });
+        const head = new THREE.Mesh(headGeo, headMat);
+        head.position.set(0, 4.4, 0);
+        pole.add(head);
+
+        parkingGroup.add(pole);
+      });
+    }
+
+    function addTree(x, z, targetGroup, isBlighted, scale = 1.0) {
+      const treeGroup = new THREE.Group();
+
+      const trunkH = (isBlighted ? 3.5 : 4.8) * scale;
+      const trunkGeo = new THREE.CylinderGeometry(0.3 * scale, 0.5 * scale, trunkH, 6);
+      const trunkMat = new THREE.MeshStandardMaterial({ color: isBlighted ? 0x2e241c : 0x543d2b, roughness: 0.9 });
+      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+      trunk.position.y = trunkH / 2;
+      trunk.castShadow = true;
+      treeGroup.add(trunk);
+
+      const folH = (isBlighted ? 3.8 : 6.0) * scale;
+      const folGeo = new THREE.DodecahedronGeometry(folH / 2, 1);
+      const folMat = new THREE.MeshStandardMaterial({
+        color: isBlighted ? 0x4a442e : 0x245828,
+        roughness: 0.82,
+        flatShading: true
+      });
+      const foliage = new THREE.Mesh(folGeo, folMat);
+      foliage.position.y = trunkH + folH / 3;
+      foliage.castShadow = true;
+      treeGroup.add(foliage);
+
+      treeGroup.position.set(x, 0, z);
+      targetGroup.add(treeGroup);
+    }
+
+    function buildExistingBlightSiteModel() {
+      // 1. Abandoned 1930s Residential Dwelling (Located north-central part per aerial)
+      const houseGeo = new THREE.BoxGeometry(18, 9, 14);
+      const houseMat = new THREE.MeshStandardMaterial({ color: 0x4a433a, roughness: 0.95 });
+      const house = new THREE.Mesh(houseGeo, houseMat);
+      house.position.set(-10, 4.5, 8);
+      house.castShadow = true;
+      house.receiveShadow = true;
+      house.userData = {
+        name: "Abandoned 1930s Residence (Blight Removal)",
+        desc: "1,856 SF dilapidated wood-frame residential dwelling in non-conforming, structurally compromised condition. Requires certified demolition and asbestos abatement ($180k budget).",
+        specs: "Built: 1930 | Status: Statutory Blight | Uninhabitable"
+      };
+      interactiveObjects.push(house);
+      existingGroup.add(house);
+
+      // Collapsed Gabled Roof
+      const roofGeo = new THREE.ConeGeometry(13, 5.5, 4);
+      roofGeo.rotateY(Math.PI / 4);
+      const roofMat = new THREE.MeshStandardMaterial({ color: 0x2d241c, roughness: 1.0 });
+      const roof = new THREE.Mesh(roofGeo, roofMat);
+      roof.position.set(-10, 11, 8);
+      roof.rotation.z = 0.16;
+      existingGroup.add(roof);
+
+      // 2. Broken Dilapidated Garages (1,408 SF recorded)
+      const g1Geo = new THREE.BoxGeometry(14, 5.5, 10);
+      const gMat = new THREE.MeshStandardMaterial({ color: 0x3d352e, roughness: 0.9 });
+      const g1 = new THREE.Mesh(g1Geo, gMat);
+      g1.position.set(20, 2.75, 4);
+      g1.rotation.y = 0.22;
+      g1.castShadow = true;
+      g1.userData = {
+        name: "Dilapidated Detached Garage #1",
+        desc: "Collapsed roof outbuilding with scattered metal debris, rusted machinery, and weed infestation.",
+        specs: "Demolition Category: Heavy Structural Debris"
+      };
+      interactiveObjects.push(g1);
+      existingGroup.add(g1);
+
+      const g2 = g1.clone();
+      g2.position.set(38, 2.5, 12);
+      g2.rotation.y = -0.35;
+      g2.userData = {
+        name: "Broken Shed & Debris Field #2",
+        desc: "Secondary broken outbuilding requiring heavy machine demolition.",
+        specs: "Status: Severe Aesthetic & Physical Blight"
+      };
+      interactiveObjects.push(g2);
+      existingGroup.add(g2);
+
+      // 3. Stagnant Unmanaged Non-Jurisdictional Silt Pond
+      const pondGeo = new THREE.CircleGeometry(22, 24);
+      pondGeo.rotateX(-Math.PI / 2);
+      const pondMat = new THREE.MeshStandardMaterial({
+        color: COLORS.murkyPondWater,
+        roughness: 0.9,
+        metalness: 0.05,
+        transparent: true,
+        opacity: 0.92
+      });
+      const pond = new THREE.Mesh(pondGeo, pondMat);
+      pond.position.set(-35, 0.1, 28);
+      pond.userData = {
+        name: "Non-Jurisdictional Silt Pond (Pre-Development)",
+        desc: "Stagnant 0.5-acre pond with 6-8 ft of uncompacted organic muck. Requires $750k dewatering, muck dredging, and engineered structural backfill to support hotel foundations.",
+        specs: "Area: ~0.50 Acres | 18,000 CY Structural Fill Required"
+      };
+      interactiveObjects.push(pond);
+      existingGroup.add(pond);
+
+      // 4. Dense Forest Canopy & Overgrowth (Matching Google Earth Satellite image)
+      for (let i = 0; i < 140; i++) {
+        const ex = -85 + Math.random() * 185;
+        const ez = -15 + Math.random() * 85;
+        if (Math.abs(ex - (-10)) < 15 && Math.abs(ez - 8) < 15) continue;
+        if (Math.abs(ex - (-35)) < 16 && Math.abs(ez - 28) < 16) continue;
+        addTree(ex, ez, existingGroup, true, 0.85 + Math.random() * 0.5);
+      }
+    }
+
+    function onDocumentClick(event) {
+      if (isTourActive) return;
+
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(interactiveObjects, true);
+
+      if (intersects.length > 0) {
+        let obj = intersects[0].object;
+        while (obj && !obj.userData.name && obj.parent) {
+          obj = obj.parent;
+        }
+
+        if (obj && obj.userData && obj.userData.name) {
+          showInspector(obj.userData);
+        }
+      }
+    }
+
+    function showInspector(data) {
+      const card = document.getElementById('inspector-card');
+      document.getElementById('inspector-title').innerText = data.name;
+      document.getElementById('inspector-desc').innerText = data.desc;
+
+      const specsContainer = document.getElementById('inspector-specs');
+      specsContainer.innerHTML = '';
+      if (data.specs) {
+        const parts = data.specs.split('|');
+        parts.forEach(p => {
+          const div = document.createElement('div');
+          div.className = "flex items-center gap-1.5 text-slate-300";
+          div.innerHTML = `<i class="fa-solid fa-chevron-right text-[8px] text-sky-400"></i> ${p.trim()}`;
+          specsContainer.appendChild(div);
+        });
+      }
+      card.classList.remove('hidden');
+    }
+
+    function closeInspector() {
+      document.getElementById('inspector-card').classList.add('hidden');
+    }
+
+    function animateCameraTo(preset) {
+      isTourActive = false;
+      document.getElementById('tour-text').innerText = "Auto Orbit";
+      document.getElementById('toggle-orbit-tour').classList.remove('bg-indigo-600', 'text-white');
+
+      let targetPos = { x: 0, y: 180, z: 240 };
+      let lookAtPos = { x: 0, y: 0, z: 0 };
+
+      switch (preset) {
+        case 'regional':
+          // Distant zoom out showing Roundabout East, Hancock Health North, and the 6-Acre site
+          targetPos = { x: 40, y: 440, z: 460 };
+          lookAtPos = { x: 40, y: 0, z: -40 };
+          break;
+        case 'northStreet':
+          // Zoomed onto the North Street-side angled parking bays
+          targetPos = { x: -2, y: 65, z: -60 };
+          lookAtPos = { x: -2, y: 0, z: -14 };
+          break;
+        case 'southBasins':
+          // Zoomed onto the dual stormwater detention basins and retaining wall
+          targetPos = { x: 0, y: 55, z: 155 };
+          lookAtPos = { x: 0, y: -2, z: 85 };
+          break;
+        case 'roundabout':
+          // Close zoom on the East Roundabout and W 200 N Bridge
+          targetPos = { x: 220, y: 80, z: 60 };
+          lookAtPos = { x: 220, y: 5, z: -38 };
+          break;
+        case 'northHealth':
+          // Looking across W 200 N to Hancock Health Gateway campus
+          targetPos = { x: -80, y: 110, z: -60 };
+          lookAtPos = { x: -80, y: 15, z: -170 };
+          break;
+        case 'siteMaster':
+          // Focused on the 6-Acre Dual Hotel lot
+          targetPos = { x: 0, y: 120, z: 150 };
+          lookAtPos = { x: 0, y: 5, z: 20 };
+          break;
+      }
+
+      new TWEEN.Tween(camera.position)
+        .to(targetPos, 1400)
+        .easing(TWEEN.Easing.Cubic.Out)
+        .start();
+
+      new TWEEN.Tween(controls.target)
+        .to(lookAtPos, 1400)
+        .easing(TWEEN.Easing.Cubic.Out)
+        .start();
+    }
+
+    function toggleTourMode() {
+      isTourActive = !isTourActive;
+      const btn = document.getElementById('toggle-orbit-tour');
+      const text = document.getElementById('tour-text');
+      if (isTourActive) {
+        text.innerText = "Stop Orbit";
+        btn.classList.add('bg-indigo-600', 'text-white');
+      } else {
+        text.innerText = "Auto Orbit";
+        btn.classList.remove('bg-indigo-600', 'text-white');
+      }
+    }
+
+    function switchState(state) {
+      currentMode = state;
+      const btnProp = document.getElementById('btn-mode-proposed');
+      const btnExist = document.getElementById('btn-mode-existing');
+
+      if (state === 'proposed') {
+        btnProp.classList.add('active');
+        btnExist.classList.remove('active');
+        proposedGroup.visible = true;
+        existingGroup.visible = false;
+      } else {
+        btnExist.classList.add('active');
+        btnProp.classList.remove('active');
+        proposedGroup.visible = false;
+        existingGroup.visible = true;
+      }
+    }
+
+    function setTimeOfDay(time) {
+      if (time === 'day') {
+        scene.background.setHex(0x060b17);
+        scene.fog.color.setHex(0x060b17);
+        directionalLight.color.setHex(0xfff7ed);
+        directionalLight.intensity = 1.45;
+        directionalLight.position.set(240, 300, 180);
+        ambientLight.intensity = 0.55;
+      } else if (time === 'sunset') {
+        scene.background.setHex(0x381207);
+        scene.fog.color.setHex(0x381207);
+        directionalLight.color.setHex(0xf97316);
+        directionalLight.intensity = 1.6;
+        directionalLight.position.set(240, 60, 90);
+        ambientLight.intensity = 0.38;
+      } else if (time === 'night') {
+        scene.background.setHex(0x02050e);
+        scene.fog.color.setHex(0x02050e);
+        directionalLight.color.setHex(0x38bdf8);
+        directionalLight.intensity = 0.45;
+        directionalLight.position.set(80, 140, 80);
+        ambientLight.intensity = 0.22;
+      }
+    }
+
+    function toggleLayer(layerName) {
+      const isChecked = document.getElementById(`layer-${layerName}`).checked;
+      switch (layerName) {
+        case 'fairfield':
+          fairfieldGroup.visible = isChecked;
+          break;
+        case 'holiday':
+          holidayGroup.visible = isChecked;
+          break;
+        case 'northParking':
+          northParkingGroup.visible = isChecked;
+          break;
+        case 'retaining':
+          retainingGroup.visible = isChecked;
+          break;
+        case 'basins':
+        case 'creek':
+          waterGroup.visible = isChecked;
+          break;
+        case 'road':
+          roadGroup.visible = isChecked;
+          break;
+        case 'north':
+          northGroup.visible = isChecked;
+          break;
+      }
+    }
+
+    function updateCompass() {
+      const rose = document.getElementById('compass-rose');
+      if (!rose) return;
+      const angle = Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z);
+      rose.style.transform = `rotate(${angle}rad)`;
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate(time) {
+      requestAnimationFrame(animate);
+
+      TWEEN.update();
+
+      if (isTourActive) {
+        tourAngle += 0.003;
+        const radius = 280;
+        camera.position.x = Math.sin(tourAngle) * radius;
+        camera.position.z = Math.cos(tourAngle) * radius;
+        camera.position.y = 140 + Math.sin(tourAngle * 2) * 35;
+        controls.target.set(0, 0, 0);
+      }
+
+      controls.update();
+      updateCompass();
+
+      // Water ripples
+      if (creekMesh) {
+        creekMesh.position.y = -6.8 + Math.sin(time * 0.002) * 0.08;
+      }
+      if (westBasinMesh) {
+        westBasinMesh.position.y = -2.4 + Math.cos(time * 0.0025) * 0.05;
+      }
+      if (eastBasinMesh) {
+        eastBasinMesh.position.y = -2.4 + Math.sin(time * 0.0025) * 0.05;
+      }
+      if (northLakeMesh) {
+        northLakeMesh.position.y = -0.6 + Math.cos(time * 0.0018) * 0.04;
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // Modal & Elevation Tab Controllers
+    function toggleElevationModal(open) {
+      const modal = document.getElementById('elevations-modal');
+      if (open) modal.classList.remove('hidden');
+      else modal.classList.add('hidden');
+    }
+
+    function switchElevationTab(tab) {
+      ['fairfield', 'holiday'].forEach(t => {
+        const btn = document.getElementById(`tab-${t}`);
+        const content = document.getElementById(`content-${t}`);
+        if (t === tab) {
+          btn.classList.add('active', 'text-white');
+          btn.classList.remove('text-slate-400');
+          content.classList.remove('hidden');
+        } else {
+          btn.classList.remove('active', 'text-white');
+          btn.classList.add('text-slate-400');
+          content.classList.add('hidden');
+        }
+      });
+    }
+
+    window.onload = function() {
+      init();
+    };
+  </script>
+</body>
+</html>
